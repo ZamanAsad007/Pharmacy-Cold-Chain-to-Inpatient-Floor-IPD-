@@ -1,0 +1,45 @@
+{
+  "resourceType": "AuditEvent",
+  "type": {
+    "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
+    "code": "rest",
+    "display": "RESTful Operation"
+  },
+  "subtype": [
+    {
+      "system": "http://hl7.org/fhir/restful-interaction",
+      "code": "create-medication-dispense",
+      "display": "create-medication-dispense"
+    }
+  ],
+  "action": "C",
+  "recorded": "2026-09-21T09:20:00.000Z",
+  "outcome": "0",
+  "outcomeDesc": "Successfully recorded MedicationDispense for cold chain transit",
+  "agent": [
+    {
+      "who": {
+        "display": "Pharmacy Cold Chain Gateway / Pharmacist Alex Chen"
+      },
+      "requestor": true
+    }
+  ],
+  "source": {
+    "observer": {
+      "display": "Pharmacy Cold Chain Gateway"
+    }
+  },
+  "entity": [
+    {
+      "what": {
+        "reference": "MedicationDispense/sample-dispense-101"
+      },
+      "description": "Cold-chain insulin delivery pack",
+      "type": {
+        "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
+        "code": "2",
+        "display": "System Object"
+      }
+    }
+  ]
+}

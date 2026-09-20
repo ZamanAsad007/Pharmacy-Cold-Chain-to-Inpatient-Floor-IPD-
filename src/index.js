@@ -10,12 +10,16 @@ const {
   validateDrug,
   validatePrescription
 } = require('./rxnorm/validator');
+const {
+  parseOmpO09
+} = require('./hl7v2/parser');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.text({ type: ['text/plain', 'application/hl7-v2', 'application/x-hl7'] }));
 
 // Health Check
 app.get('/health', async (req, res) => {
@@ -93,6 +97,18 @@ app.get('/api/prescriptions/:id/validate', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Phase 3: Parse legacy HL7 v2 OMP^O09 message
+app.post('/api/hl7/parse', (req, res) => {
+  const rawMessage = typeof req.body === 'string' ? req.body : req.body.message;
+  const result = parseOmpO09(rawMessage);
+
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+
+  res.json(result);
 });
 
 if (require.main === module) {

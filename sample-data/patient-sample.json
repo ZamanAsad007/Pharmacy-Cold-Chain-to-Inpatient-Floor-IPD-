@@ -1,0 +1,18 @@
+{
+  "resourceType": "Patient",
+  "identifier": [
+    {
+      "system": "http://hospital.smarthealth.org/patients",
+      "value": "PAT-98765"
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "Smith",
+      "given": ["Jane", "A"]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1985-04-12"
+}

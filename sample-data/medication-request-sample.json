@@ -1,0 +1,23 @@
+{
+  "resourceType": "MedicationRequest",
+  "status": "active",
+  "intent": "order",
+  "medicationCodeableConcept": {
+    "coding": [
+      {
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "313782",
+        "display": "Insulin Glargine 100 UNT/ML Injectable Solution"
+      }
+    ],
+    "text": "Insulin Glargine 100 UNT/ML Injectable Solution"
+  },
+  "subject": {
+    "reference": "Patient/1"
+  },
+  "dosageInstruction": [
+    {
+      "text": "10 units subcutaneously once daily at bedtime"
+    }
+  ]
+}

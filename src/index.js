@@ -351,9 +351,28 @@ app.get('/api/auth/smart/session/:id', (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Pharmacy Cold Chain service listening on port ${port}`);
-  });
+  function startServer(listenPort) {
+    const server = app.listen(listenPort, () => {
+      console.log(`\n=============================================================`);
+      console.log(`  🏥 Pharmacy Cold Chain Service Running on Port ${listenPort}`);
+      console.log(`  🌐 Web UI Dashboard: http://localhost:${listenPort}`);
+      console.log(`  🔍 FHIR Healthcheck: http://localhost:${listenPort}/health`);
+      console.log(`=============================================================\n`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        const nextPort = Number(listenPort) + 5;
+        console.warn(`⚠️  Port ${listenPort} is already in use by another service.`);
+        console.log(`🔄 Automatically retrying on port ${nextPort}...`);
+        startServer(nextPort);
+      } else {
+        console.error('Server error:', err);
+      }
+    });
+  }
+
+  startServer(port);
 }
 
 module.exports = app;

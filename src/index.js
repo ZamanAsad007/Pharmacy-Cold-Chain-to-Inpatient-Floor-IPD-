@@ -23,6 +23,11 @@ const {
   sendNurseNotification,
   getNotificationHistory
 } = require('./notify/sanitizer');
+const {
+  withAudit,
+  getAuditEvents,
+  getAuditTrailForResource
+} = require('./audit/logger');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -41,10 +46,13 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// Phase 1: Fetch and parse prescription record
+// Phase 1: Fetch and parse prescription record (with Phase 6 AuditEvent)
 app.get('/api/prescriptions/:id', async (req, res) => {
   try {
-    const prescription = await getPrescriptionById(req.params.id);
+    const prescription = await withAudit('read-prescription', () => getPrescriptionById(req.params.id), {
+      action: 'R',
+      entityRef: `MedicationRequest/${req.params.id}`
+    });
     res.json({
       success: true,
       data: prescription
@@ -121,10 +129,14 @@ app.post('/api/hl7/parse', (req, res) => {
   res.json(result);
 });
 
-// Phase 4: Create MedicationDispense record and confirm by read-back
+// Phase 4: Create MedicationDispense record and confirm by read-back (with Phase 6 AuditEvent)
 app.post('/api/dispenses', async (req, res) => {
   try {
-    const dispense = await recordDispenseAndDispatch(req.body);
+    const dispense = await withAudit('create-medication-dispense', () => recordDispenseAndDispatch(req.body), {
+      action: 'C',
+      getEntityRef: (r) => `MedicationDispense/${r.id}`,
+      entityRef: req.body.prescriptionId ? `MedicationRequest/${req.body.prescriptionId}` : null
+    });
     res.status(201).json({
       success: true,
       data: dispense
@@ -157,7 +169,7 @@ app.get('/api/dispenses/:id', async (req, res) => {
   }
 });
 
-// Phase 5: Generate sanitized nurse notification and mock dispatch
+// Phase 5: Generate sanitized nurse notification and mock dispatch (with Phase 6 AuditEvent)
 app.post('/api/notify/nurse', async (req, res) => {
   try {
     let dispenseRecord = req.body.dispenseRecord;
@@ -171,15 +183,18 @@ app.post('/api/notify/nurse', async (req, res) => {
       });
     }
 
-    const sanitizedPayload = sanitizeForNurseNotification(dispenseRecord, req.body.options);
-    const receipt = await sendNurseNotification(sanitizedPayload, req.body.channelOptions);
+    const result = await withAudit('dispatch-nurse-notification', async () => {
+      const sanitizedPayload = sanitizeForNurseNotification(dispenseRecord, req.body.options);
+      const receipt = await sendNurseNotification(sanitizedPayload, req.body.channelOptions);
+      return { receipt, sanitizedPayload };
+    }, {
+      action: 'E',
+      entityRef: `MedicationDispense/${dispenseRecord.id}`
+    });
 
     res.json({
       success: true,
-      data: {
-        receipt,
-        sanitizedPayload
-      }
+      data: result
     });
   } catch (error) {
     res.status(error.message.includes('PHI Leakage') ? 500 : 400).json({
@@ -195,6 +210,42 @@ app.get('/api/notify/history', (req, res) => {
     success: true,
     data: getNotificationHistory()
   });
+});
+
+// Phase 6: Query AuditEvents from FHIR server
+app.get('/api/audit', async (req, res) => {
+  try {
+    const events = await getAuditEvents(req.query);
+    res.json({
+      success: true,
+      count: events.length,
+      data: events
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 6: Reconstruct chronological audit trail for any resource
+app.get('/api/audit/trail/:resourceType/:id', async (req, res) => {
+  try {
+    const resourceRef = `${req.params.resourceType}/${req.params.id}`;
+    const trail = await getAuditTrailForResource(resourceRef);
+    res.json({
+      success: true,
+      resource: resourceRef,
+      count: trail.length,
+      data: trail
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 if (require.main === module) {

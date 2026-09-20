@@ -40,9 +40,8 @@ function buildAuditEvent(params = {}) {
   // Entity (what resource was touched)
   const entities = [];
   if (params.entity) {
-    const isFailure = outcome !== '0';
     if (typeof params.entity === 'string') {
-      const isRef = params.entity.includes('/') && !isFailure;
+      const isRef = params.entity.includes('/');
       entities.push({
         what: isRef
           ? { reference: params.entity, display: params.entity }
@@ -55,7 +54,7 @@ function buildAuditEvent(params = {}) {
         }
       });
     } else if (typeof params.entity === 'object') {
-      const hasRef = params.entity.reference && !isFailure;
+      const hasRef = Boolean(params.entity.reference);
       entities.push({
         what: hasRef
           ? { reference: params.entity.reference, display: params.entity.display || params.entity.reference }

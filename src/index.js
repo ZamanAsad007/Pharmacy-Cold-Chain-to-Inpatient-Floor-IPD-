@@ -28,6 +28,9 @@ const {
   getAuditEvents,
   getAuditTrailForResource
 } = require('./audit/logger');
+const {
+  runColdChainPipeline
+} = require('./orchestrator');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -240,6 +243,20 @@ app.get('/api/audit/trail/:resourceType/:id', async (req, res) => {
       count: trail.length,
       data: trail
     });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 7: Trigger end-to-end pharmacy cold chain pipeline
+app.post('/api/pipeline/run', async (req, res) => {
+  try {
+    const result = await runColdChainPipeline(req.body);
+    const statusCode = result.success ? 200 : (result.failedStage === 'input-validation' ? 400 : 422);
+    res.status(statusCode).json(result);
   } catch (error) {
     res.status(500).json({
       success: false,

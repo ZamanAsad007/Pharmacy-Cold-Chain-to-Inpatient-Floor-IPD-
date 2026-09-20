@@ -18,6 +18,11 @@ const {
   createMedicationDispense,
   recordDispenseAndDispatch
 } = require('./fhir/medicationDispense');
+const {
+  sanitizeForNurseNotification,
+  sendNurseNotification,
+  getNotificationHistory
+} = require('./notify/sanitizer');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -150,6 +155,46 @@ app.get('/api/dispenses/:id', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Phase 5: Generate sanitized nurse notification and mock dispatch
+app.post('/api/notify/nurse', async (req, res) => {
+  try {
+    let dispenseRecord = req.body.dispenseRecord;
+    if (!dispenseRecord && req.body.dispenseId) {
+      dispenseRecord = await getDispenseById(req.body.dispenseId);
+    }
+    if (!dispenseRecord) {
+      return res.status(400).json({
+        success: false,
+        error: 'Either dispenseRecord or valid dispenseId must be provided'
+      });
+    }
+
+    const sanitizedPayload = sanitizeForNurseNotification(dispenseRecord, req.body.options);
+    const receipt = await sendNurseNotification(sanitizedPayload, req.body.channelOptions);
+
+    res.json({
+      success: true,
+      data: {
+        receipt,
+        sanitizedPayload
+      }
+    });
+  } catch (error) {
+    res.status(error.message.includes('PHI Leakage') ? 500 : 400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 5: Retrieve notification dispatch history
+app.get('/api/notify/history', (req, res) => {
+  res.json({
+    success: true,
+    data: getNotificationHistory()
+  });
 });
 
 if (require.main === module) {

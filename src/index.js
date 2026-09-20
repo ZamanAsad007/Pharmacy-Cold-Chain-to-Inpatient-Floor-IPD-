@@ -6,6 +6,10 @@ const {
   getPrescriptionById,
   createMedicationRequest
 } = require('./fhir/medicationRequest');
+const {
+  validateDrug,
+  validatePrescription
+} = require('./rxnorm/validator');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -50,6 +54,41 @@ app.post('/api/prescriptions', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 2: Validate drug against RxNorm
+app.post('/api/validate-drug', async (req, res) => {
+  try {
+    const { drugName, rxNormCode } = req.body;
+    const result = await validateDrug(drugName, rxNormCode);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 2: Fetch prescription and validate its drug in one call
+app.get('/api/prescriptions/:id/validate', async (req, res) => {
+  try {
+    const prescription = await getPrescriptionById(req.params.id);
+    const validation = await validatePrescription(prescription);
+    res.json({
+      success: true,
+      data: validation
+    });
+  } catch (error) {
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
       success: false,
       error: error.message
     });

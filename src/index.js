@@ -31,6 +31,11 @@ const {
 const {
   runColdChainPipeline
 } = require('./orchestrator');
+const {
+  buildSmartAuthorizationUrl,
+  exchangeCodeForToken,
+  getSession
+} = require('./auth/smartAuth');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -263,6 +268,83 @@ app.post('/api/pipeline/run', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Phase 8: SMART on FHIR EHR Launch Endpoint (PKCE)
+app.get('/api/auth/smart/launch', async (req, res) => {
+  try {
+    const fhirBaseUrl = req.query.iss || process.env.FHIR_BASE_URL || 'http://localhost:8088/fhir';
+    const redirectUri = req.query.redirect_uri || `${req.protocol}://${req.get('host')}/api/auth/smart/callback`;
+    const launch = req.query.launch;
+
+    const authData = await buildSmartAuthorizationUrl({
+      fhirBaseUrl,
+      redirectUri,
+      launch,
+      clientId: req.query.client_id || 'pharmacy-cold-chain-app'
+    });
+
+    if (req.query.mode === 'redirect') {
+      return res.redirect(authData.authUrl);
+    }
+
+    res.json({
+      success: true,
+      data: authData
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 8: SMART on FHIR OAuth Callback (Token Exchange via PKCE)
+app.get('/api/auth/smart/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code || !state) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both code and state are required in SMART callback'
+      });
+    }
+
+    const session = await exchangeCodeForToken({ code, state });
+    res.json({
+      success: true,
+      message: 'SMART on FHIR PKCE login successful. Zero cleartext tokens stored in localStorage.',
+      data: session
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 8: Get active session context
+app.get('/api/auth/smart/session/:id', (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session) {
+    return res.status(404).json({
+      success: false,
+      error: 'Session not found or expired'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      sessionId: session.sessionId,
+      patientId: session.patientId,
+      expiresAt: session.expiresAt,
+      scope: session.scope,
+      status: 'active'
+    }
+  });
 });
 
 if (require.main === module) {

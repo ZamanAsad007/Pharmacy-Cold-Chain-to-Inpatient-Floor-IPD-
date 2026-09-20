@@ -13,6 +13,11 @@ const {
 const {
   parseOmpO09
 } = require('./hl7v2/parser');
+const {
+  getDispenseById,
+  createMedicationDispense,
+  recordDispenseAndDispatch
+} = require('./fhir/medicationDispense');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -109,6 +114,42 @@ app.post('/api/hl7/parse', (req, res) => {
   }
 
   res.json(result);
+});
+
+// Phase 4: Create MedicationDispense record and confirm by read-back
+app.post('/api/dispenses', async (req, res) => {
+  try {
+    const dispense = await recordDispenseAndDispatch(req.body);
+    res.status(201).json({
+      success: true,
+      data: dispense
+    });
+  } catch (error) {
+    const isClientError = error.message.includes('required') ||
+      error.message.includes('not found') ||
+      error.message.includes('Invalid');
+    res.status(isClientError ? 400 : 500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Phase 4: Fetch MedicationDispense record by ID
+app.get('/api/dispenses/:id', async (req, res) => {
+  try {
+    const dispense = await getDispenseById(req.params.id);
+    res.json({
+      success: true,
+      data: dispense
+    });
+  } catch (error) {
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 if (require.main === module) {

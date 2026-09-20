@@ -120,10 +120,10 @@ curl -X GET "http://localhost:8088/fhir/Patient/{id}" \
 ## Implementation Roadmap
 
 - [x] **Phase 0**: Environment Setup (HAPI FHIR, folder structure, Express/React dependencies)
-- [ ] **Phase 1**: Read Prescription (`MedicationRequest`)
-- [ ] **Phase 2**: Validate Drug via RxNorm API
-- [ ] **Phase 3**: Parse HL7 v2 `OMP^O09` Message
-- [ ] **Phase 4**: Write `MedicationDispense` to FHIR Server
+- [x] **Phase 1**: Read Prescription (`MedicationRequest`)
+- [x] **Phase 2**: Validate Drug via RxNorm API
+- [x] **Phase 3**: Parse HL7 v2 `OMP^O09` Message
+- [x] **Phase 4**: Write `MedicationDispense` to FHIR Server
 - [ ] **Phase 5**: PHI Stripping & Nurse Notification Payload
 - [ ] **Phase 6**: AuditEvent Logging
 - [ ] **Phase 7**: End-to-End Flow Integration

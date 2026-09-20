@@ -37,12 +37,15 @@ const {
   getSession
 } = require('./auth/smartAuth');
 
+const path = require('path');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 app.use(express.text({ type: ['text/plain', 'application/hl7-v2', 'application/x-hl7'] }));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Health Check
 app.get('/health', async (req, res) => {

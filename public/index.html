@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pharmacy Cold Chain to Inpatient Floor (IPD)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .stage-card { transition: all 0.3s ease; }
+    .stage-card:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-indigo-900 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-3 bg-indigo-700 rounded-xl shadow-inner text-white">
+          <i class="fa-solid fa-snowflake text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">Pharmacy Cold Chain to Inpatient Floor</h1>
+          <p class="text-indigo-200 text-sm">FHIR R4 & HL7 v2 Interoperability Gateway</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="fhir-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          FHIR Server: Connecting...
+        </span>
+        <a href="http://localhost:8088/" target="_blank" class="text-xs bg-indigo-800 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition border border-indigo-600 inline-flex items-center gap-1">
+          <i class="fa-solid fa-server"></i> HAPI FHIR UI
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+
+    <!-- Top Action Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">End-to-End Cold Chain Pipeline</h2>
+        <p class="text-sm text-slate-500 mt-1">Triggers the complete clinical flow: Read Prescription $\rightarrow$ RxNorm Check $\rightarrow$ HL7 Parse $\rightarrow$ Dispense Write $\rightarrow$ PHI Stripping $\rightarrow$ Nurse Notification $\rightarrow$ Audit Log.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="run-pipeline-btn" onclick="triggerPipeline()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95">
+          <i class="fa-solid fa-play"></i>
+          <span>Run Cold Chain Pipeline</span>
+        </button>
+        <button onclick="refreshAuditTrail()" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2.5 rounded-xl transition">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span>Refresh Logs</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pipeline Stages Live Tracker -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4" id="stages-container">
+      
+      <!-- Stage 1 -->
+      <div id="stage-1" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 1</span>
+          <i class="fa-solid fa-file-prescription text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Read Prescription</div>
+        <div class="text-xs text-slate-500 mt-1">FHIR MedicationRequest</div>
+        <div id="stage-1-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+      <!-- Stage 2 -->
+      <div id="stage-2" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 2</span>
+          <i class="fa-solid fa-capsules text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Validate Drug</div>
+        <div class="text-xs text-slate-500 mt-1">NLM RxNorm / RxNav</div>
+        <div id="stage-2-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+      <!-- Stage 3 -->
+      <div id="stage-3" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 3</span>
+          <i class="fa-solid fa-code-compare text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Parse HL7 v2</div>
+        <div class="text-xs text-slate-500 mt-1">OMP^O09 Pharmacy Order</div>
+        <div id="stage-3-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+      <!-- Stage 4 -->
+      <div id="stage-4" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 4</span>
+          <i class="fa-solid fa-box text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Write Dispense</div>
+        <div class="text-xs text-slate-500 mt-1">MedicationDispense & ETA</div>
+        <div id="stage-4-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+      <!-- Stage 5 -->
+      <div id="stage-5" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 5</span>
+          <i class="fa-solid fa-bell text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Nurse Alert</div>
+        <div class="text-xs text-slate-500 mt-1">Zero-PHI Push Alert</div>
+        <div id="stage-5-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+      <!-- Stage 6 -->
+      <div id="stage-6" class="stage-card bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
+          <span>PHASE 6</span>
+          <i class="fa-solid fa-shield-halved text-slate-400"></i>
+        </div>
+        <div class="font-bold text-slate-800 text-sm">Audit Trail</div>
+        <div class="text-xs text-slate-500 mt-1">FHIR AuditEvent Logs</div>
+        <div id="stage-6-status" class="mt-3 text-xs font-semibold text-slate-400">Standby</div>
+      </div>
+
+    </div>
+
+    <!-- Side-by-Side PHI Stripping Comparison -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Before (Full Internal Record with PHI) -->
+      <div class="bg-white rounded-2xl shadow-sm border border-rose-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <h3 class="font-bold text-rose-900 text-base">Internal Dispense Record (Contains Sensitive PHI)</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-rose-100 text-rose-700 rounded-md border border-rose-200">RESTRICTED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-3">Internal hospital record contains patient identity, medical record number, and inpatient bed location.</p>
+        <div class="bg-slate-900 rounded-xl p-4 font-mono text-xs text-rose-300 overflow-x-auto max-h-64 shadow-inner" id="raw-phi-view">
+          <pre>{
+  "resourceType": "MedicationDispense",
+  "status": "in-progress",
+  "patient": {
+    "name": "Jane Smith",
+    "mrn": "MRN-98765",
+    "dob": "1985-04-12",
+    "roomNumber": "Floor 3, Bed 302-B"
+  },
+  "medication": "Insulin Glargine 100 UNT/ML",
+  "courier": "Courier Maria Rodriguez",
+  "eta": "2026-09-21T10:30:00.000Z"
+}</pre>
+        </div>
+      </div>
+
+      <!-- After (Sanitized Zero-PHI Payload) -->
+      <div class="bg-white rounded-2xl shadow-sm border border-emerald-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <h3 class="font-bold text-emerald-900 text-base">Outbound Nurse Alert Payload (Zero-PHI Whitelist)</h3>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md border border-emerald-200">DE-IDENTIFIED</span>
+        </div>
+        <p class="text-xs text-slate-500 mb-3">Pushed to mobile ward handsets. Strictly minimal logistics: courier, ETA, and generic cold-chain category.</p>
+        <div class="bg-slate-900 rounded-xl p-4 font-mono text-xs text-emerald-300 overflow-x-auto max-h-64 shadow-inner" id="sanitized-phi-view">
+          <pre>{
+  "notificationId": "NOTIF-PENDING",
+  "status": "in-transit",
+  "medicationCategory": "Refrigerated Biologic / Insulin",
+  "storageCondition": "Maintain 2-8°C (Cold Chain)",
+  "destinationStation": "Floor 3 Inpatient Nursing Station",
+  "courier": "Courier Maria Rodriguez",
+  "estimatedArrival": "2026-09-21T10:30:00.000Z",
+  "requiresImmediateRefrigeration": true
+}</pre>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live FHIR Audit Trail Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-800">Tamper-Evident Audit Trail (FHIR AuditEvent)</h3>
+          <p class="text-xs text-slate-500">Live immutable logs queried from local HAPI FHIR server</p>
+        </div>
+        <span id="audit-count" class="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">0 events</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-600">
+          <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-100">
+            <tr>
+              <th class="px-6 py-3">Timestamp</th>
+              <th class="px-6 py-3">Action</th>
+              <th class="px-6 py-3">Subtype / Operation</th>
+              <th class="px-6 py-3">Target Entity</th>
+              <th class="px-6 py-3">Outcome</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body" class="divide-y divide-slate-100 font-mono text-xs">
+            <tr>
+              <td colspan="5" class="px-6 py-8 text-center text-slate-400 font-sans">
+                No audit events loaded yet. Click "Run Cold Chain Pipeline" to generate live events.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Health check on load
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('fhir-badge');
+        if (data.fhirServer && data.fhirServer.status === 'ok') {
+          badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> FHIR Server: Connected (R4)';
+        } else {
+          badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span> FHIR Server: Offline';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function refreshAuditTrail() {
+      try {
+        const res = await fetch('/api/audit?limit=15');
+        const data = await res.json();
+        if (data.success && data.data) {
+          const tbody = document.getElementById('audit-table-body');
+          document.getElementById('audit-count').innerText = `${data.data.length} events`;
+          if (data.data.length === 0) return;
+
+          tbody.innerHTML = data.data.map(evt => {
+            const outcomeClass = evt.outcome === '0'
+              ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+              : 'text-rose-600 bg-rose-50 border-rose-200';
+            const entityRef = evt.entity?.[0]?.what?.reference || evt.entity?.[0]?.what?.display || evt.entity?.[0]?.description || '-';
+            const subtype = evt.subtype?.[0]?.code || 'operation';
+
+            return `
+              <tr class="hover:bg-slate-50 transition">
+                <td class="px-6 py-3 font-sans text-slate-500">${new Date(evt.recorded).toLocaleTimeString()}</td>
+                <td class="px-6 py-3 font-bold text-slate-700">${evt.action}</td>
+                <td class="px-6 py-3 text-indigo-600 font-semibold">${subtype}</td>
+                <td class="px-6 py-3 text-slate-600">${entityRef}</td>
+                <td class="px-6 py-3">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${outcomeClass}">
+                    ${evt.outcome === '0' ? 'SUCCESS' : 'FAILED'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function triggerPipeline() {
+      const btn = document.getElementById('run-pipeline-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...';
+
+      // Reset stages
+      for (let i = 1; i <= 6; i++) {
+        document.getElementById(`stage-${i}-status`).innerText = 'Processing...';
+        document.getElementById(`stage-${i}-status`).className = 'mt-3 text-xs font-semibold text-amber-500 animate-pulse';
+      }
+
+      try {
+        // Step 1: Create a test prescription
+        const patRes = await fetch('http://localhost:8088/fhir/Patient', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/fhir+json' },
+          body: JSON.stringify({
+            resourceType: 'Patient',
+            name: [{ family: 'Smith', given: ['Jane'] }],
+            birthDate: '1985-04-12'
+          })
+        });
+        const patData = await patRes.json();
+
+        const medReqRes = await fetch('/api/prescriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resourceType: 'MedicationRequest',
+            status: 'active',
+            intent: 'order',
+            subject: { reference: `Patient/${patData.id}` },
+            medicationCodeableConcept: {
+              coding: [{
+                system: 'http://www.nlm.nih.gov/research/umls/rxnorm',
+                code: '313782',
+                display: 'Insulin Glargine 100 UNT/ML'
+              }],
+              text: 'Insulin Glargine 100 UNT/ML'
+            }
+          })
+        });
+        const medReqData = await medReqRes.json();
+        const prescriptionId = medReqData.data.id;
+
+        // Step 2: Trigger full pipeline
+        const pipeRes = await fetch('/api/pipeline/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prescriptionId,
+            destinationStation: 'Floor 3 Inpatient Nursing Station (Bed 302-B)',
+            packer: 'Pharmacist Alex Chen',
+            courier: 'Courier Maria Rodriguez'
+          })
+        });
+
+        const pipeData = await pipeRes.json();
+
+        if (pipeData.success) {
+          // Update stages visual
+          document.getElementById('stage-1-status').innerText = 'OK (Rx #' + prescriptionId + ')';
+          document.getElementById('stage-1-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          document.getElementById('stage-2-status').innerText = 'OK (RxCUI ' + pipeData.stages.drugValidation.rxNormCode + ')';
+          document.getElementById('stage-2-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          document.getElementById('stage-3-status').innerText = 'OK (Verified)';
+          document.getElementById('stage-3-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          document.getElementById('stage-4-status').innerText = 'OK (Dispense #' + pipeData.stages.dispense.id + ')';
+          document.getElementById('stage-4-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          document.getElementById('stage-5-status').innerText = 'OK (Alert Sent)';
+          document.getElementById('stage-5-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          document.getElementById('stage-6-status').innerText = 'OK (Logged)';
+          document.getElementById('stage-6-status').className = 'mt-3 text-xs font-semibold text-emerald-600';
+
+          // Update Before/After views
+          document.getElementById('raw-phi-view').innerHTML = `<pre>${JSON.stringify({
+            resourceType: "MedicationDispense",
+            id: pipeData.stages.dispense.id,
+            patient: {
+              name: "Jane Smith",
+              patientRef: "Patient/" + patData.id,
+              roomLocation: "Floor 3, Bed 302-B"
+            },
+            drugName: "Insulin Glargine 100 UNT/ML",
+            rxNormCode: "313782",
+            courier: pipeData.stages.dispense.courier.name,
+            eta: pipeData.stages.dispense.eta
+          }, null, 2)}</pre>`;
+
+          document.getElementById('sanitized-phi-view').innerHTML = `<pre>${JSON.stringify(pipeData.stages.notification.sanitizedPayload, null, 2)}</pre>`;
+
+          // Refresh audit table
+          await refreshAuditTrail();
+        } else {
+          alert('Pipeline error: ' + pipeData.error);
+        }
+
+      } catch (err) {
+        console.error(err);
+        alert('Pipeline execution failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> <span>Run Cold Chain Pipeline</span>';
+      }
+    }
+
+    // Initialize
+    checkHealth();
+    refreshAuditTrail();
+  </script>
+</body>
+</html>

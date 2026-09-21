@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   hapi-fhir:
     image: docker.io/hapiproject/hapi:v6.10.0

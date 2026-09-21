@@ -83,10 +83,17 @@ This system provides a secure, standards-compliant pipeline for handling tempera
 
 ### 1. Start Local FHIR Server
 
-Run the official HAPI FHIR JPA Starter container:
+Start the official HAPI FHIR JPA Starter container:
 
 ```bash
+# Using Docker Compose (Recommended)
+docker compose up -d
+
+# Or using direct Docker run:
 docker run -d --name hapi-fhir -p 8088:8080 hapiproject/hapi:v6.10.0
+
+# Or with Podman:
+podman compose up -d
 ```
 
 Verify that the FHIR server is reachable:
